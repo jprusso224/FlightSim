@@ -11,15 +11,23 @@ class Camera {
 		Vec3f forward;
 		Vec3f up;
 		Vec3f along;
+		float droll;
+		float dpitch;
+		float dyaw;
+		float speed;
 	public:
 		Camera();
 		virtual ~Camera();
 		Vec3f getPosition();
 		void reset();
 		void update();
-		void roll(int th);
-		void pitch(int th);
-		void yaw(int th);
+		void roll(float th);
+		void pitch(float th);
+		void yaw(float th);
+		void deltaRoll(float dth);
+		void deltaPitch(float dth);
+		void deltaYaw(float dth);
+		void move();
 		void thrust();
 		void brake();
 };

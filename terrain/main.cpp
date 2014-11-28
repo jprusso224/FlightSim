@@ -36,26 +36,28 @@
 #include "imageloader.h"
 #include "vec3f.h"
 #include "terrain.h"
+#include "Camera.h"
 #include "CSCIx229.h"
 #include <SDL/SDL.h>
 #include <SDL/SDL_mixer.h>
 
 using namespace std;
 
-int fov=70;       //  Field of view (for perspective)
+int fov=10;       //  Field of view (for perspective)
 double asp=1;     //  Aspect ratio
 double dim=8;     //  Size of world
-float sc = 10;
+float sc = 50;
+float seaLevel = -5.5;
 
 double th = 0.0;
 double ph = 0.0;
 double ps = 0.0;
 // Set initial eye coordinates for fpv
-double Ex = 0;
-double Ey = 0.75;
+double Ex = 1;
+double Ey = 2;
 double Ez = 0;
 
-double Lx = 0;
+double Lx = 1;
 double Ly = 0;
 double Lz = 0;
 
@@ -72,56 +74,245 @@ double du = 0;
 double dv = 0;
 double dw = 0;
 
-// body angular velocities
+// world angular velocities
 double dph = 0;
 double dth = 0;
 double dps = 0;
 
-
+//body angular velocities
+double p = 0;
+double q = 0;
+double r = 0;
 
 Terrain* _terrain;
 unsigned int water;
 unsigned int ground;
+unsigned int cockpit;
+unsigned int sky[2];   //  Sky textures
+unsigned int bark;
+unsigned int leaves;
+
+int density = 1000;
+int rw[1000],rl[1000];
+float rh[1000];
 
 void cleanup() {
 	delete _terrain;
 }
 
+void Tree(float x,float y,float z)
+{
+	int d = 5;
+	int j = 0;
+	glColor3f(1,1,1);
+   //Trunk
+   glPushMatrix();
+   glTranslatef(x,y,z);
+   glEnable(GL_TEXTURE_2D);
+   glBindTexture(GL_TEXTURE_2D,bark);
+   glBegin(GL_QUAD_STRIP);
+   for(j = 0; j <= 360; j+=d)
+   {
+	   glColor3f(1,1,1);
+	   glNormal3f(Cos(j),0,Sin(j));
+	   glTexCoord2d(j/360.0,0);glVertex3f(0.2*Cos(j),1,0.2*Sin(j));
+	   glTexCoord2d(j/360.0,1);glVertex3f(0.2*Cos(j),-0.2,0.2*Sin(j)); // bottom of tree is open and hidden
+   }
+   glEnd();
+  
+   glColor3f(0,0.3,0);
+   glBindTexture(GL_TEXTURE_2D,leaves);
+   //Draw a cone of leaves
+   glBegin(GL_TRIANGLE_FAN);
+   
+ // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+ //  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+   glTexCoord2d(1,0);
+   glVertex3f(0,4,0);
+   for(j = 0; j <= 360; j+=d)
+   {
+	   //glNormal3f(Cos(j),0,Sin(j));
+	   glTexCoord2d(0,j/360);
+	   glVertex3f(1.5*Cos(j),0.5,1.5*Sin(j));
+   }
+   glEnd();
+  
+  glPopMatrix();
+}
+
+void makeForest()
+{
+	
+	for(int i = 0; i <= density; i++){
+		rw[i] = rand()%_terrain->width();
+		rl[i] = rand()%_terrain->length();
+		rh[i] = _terrain->getHeight(rw[i],rl[i]);
+	
+	}
+}
+void drawForest()
+{
+	for(int i = 0; i <= density; i++){
+		if (rh[i] > seaLevel){
+			Tree(rw[i],rh[i],rl[i]);
+		}
+	}
+}
 
 
-/*void initRendering() {
+
+/*
+ *  Draw the cockpit as an overlay
+ *  Must be called last
+ */
+
+void Cockpit()
+{
+   //  Screen edge
+   //  Save transform attributes (Matrix Mode and Enabled Modes)
+   glPushAttrib(GL_TRANSFORM_BIT|GL_ENABLE_BIT);
+   //  Save projection matrix and set unit transform
+   glMatrixMode(GL_PROJECTION);
+   glPushMatrix();
+   glLoadIdentity();
+   glOrtho(-asp,+asp,-1,1,-1,1);
+   //  Save model view matrix and set to indentity
+   glMatrixMode(GL_MODELVIEW);
+   glPushMatrix();
+   glLoadIdentity();
+   //  Draw instrument panel with texture
+   glColor3f(1,1,1);
+   glEnable(GL_TEXTURE_2D);
+   glBindTexture(GL_TEXTURE_2D,cockpit);
+   glBegin(GL_QUADS);
+   glTexCoord2d(0,0);glVertex2f(-1.5,-1);
+   glTexCoord2d(1,0);glVertex2f(+1.5,-1);
+   glTexCoord2d(1,1);glVertex2f(+1.5, -0.25);
+   glTexCoord2d(0,1);glVertex2f(-1.5, -0.25);
+   glEnd();
+   glDisable(GL_TEXTURE_2D);
+   //  Draw the inside of the cockpit in grey
+   //  Reset model view matrix
+   glColor3f(0.3,0.3,0.3);
+   glBegin(GL_QUADS);
+   //  Left
+   glVertex2f(-0.50,-0.25);
+   glVertex2f(-0.45,+0.5);
+   glVertex2f(-0.40,+0.5);
+   glVertex2f(-0.40,-0.25);
+   
+      //  Right
+   glVertex2f(+0.50,-0.25);
+   glVertex2f(+0.45,+0.5);
+   glVertex2f(+0.40,+0.5);
+   glVertex2f(+0.40,-0.25);
+   
+   glEnd();
+   
+   // Draw lines/sights
+   glColor3f(0.0,1.0,0.25); 
+   glBegin(GL_LINES);
+	glVertex2f(-0.35, -0.20);
+	glVertex2f(-0.35, 0.4);
+	glEnd();
+   
+    glBegin(GL_LINES);
+	glVertex2f(0.35, -0.20);
+	glVertex2f(0.35, 0.4);
+	glEnd();
+	
+	glBegin(GL_LINES);
+	glVertex2f(0.0, 0.025);
+	glVertex2f(0.0, 0.175);
+	glEnd();
+	
+	glBegin(GL_LINES);
+	glVertex2f(-0.075, 0.1);
+	glVertex2f(0.075, 0.1);
+	glEnd();
+   
+   
+   glPopMatrix();
+   //  Reset projection matrix
+   glMatrixMode(GL_PROJECTION);
+   glPopMatrix();
+   //  Pop transform attributes (Matrix Mode and Enabled Modes)
+   glPopAttrib();
+}
+
+/* 
+ *  Draw sky box
+ */
+static void Sky(double D)
+{
+   glColor3f(1,1,1);
+   glEnable(GL_TEXTURE_2D);
+
+   //  Sides
+   glBindTexture(GL_TEXTURE_2D,sky[1]);
+   glBegin(GL_QUADS);
+   glTexCoord2f(0.00,0); glVertex3f(-D,-D,-D);
+   glTexCoord2f(1.0,0); glVertex3f(+D,-D,-D);
+   glTexCoord2f(1.0,1); glVertex3f(+D,+D,-D);
+   glTexCoord2f(0.00,1); glVertex3f(-D,+D,-D);
+
+   glTexCoord2f(0.0,0); glVertex3f(+D,-D,-D);
+   glTexCoord2f(1.0,0); glVertex3f(+D,-D,+D);
+   glTexCoord2f(1.0,1); glVertex3f(+D,+D,+D);
+   glTexCoord2f(0.0,1); glVertex3f(+D,+D,-D);
+
+   glTexCoord2f(0.0,0); glVertex3f(+D,-D,+D);
+   glTexCoord2f(1.0,0); glVertex3f(-D,-D,+D);
+   glTexCoord2f(1.0,1); glVertex3f(-D,+D,+D);
+   glTexCoord2f(0.0,1); glVertex3f(+D,+D,+D);
+
+   glTexCoord2f(0.0,0); glVertex3f(-D,-D,+D);
+   glTexCoord2f(1.00,0); glVertex3f(-D,-D,-D);
+   glTexCoord2f(1.00,1); glVertex3f(-D,+D,-D);
+   glTexCoord2f(0.0,1); glVertex3f(-D,+D,+D);
+   glEnd();
+
+   //  Top and bottom
+   glBindTexture(GL_TEXTURE_2D,sky[1]);
+   glBegin(GL_QUADS);
+   glTexCoord2f(0.0,0); glVertex3f(+D,+D,-D);
+   glTexCoord2f(1.0,0); glVertex3f(+D,+D,+D);
+   glTexCoord2f(1.0,1); glVertex3f(-D,+D,+D);
+   glTexCoord2f(0.0,1); glVertex3f(-D,+D,-D);
+
+ 
+   glEnd();
+
+   glDisable(GL_TEXTURE_2D);
+}
+
+void initRendering() {
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_COLOR_MATERIAL);
 	glEnable(GL_LIGHTING);
 	glEnable(GL_LIGHT0);
 	glEnable(GL_NORMALIZE);
 	glShadeModel(GL_SMOOTH);
-}*/
+}
+/*
+/void handleResize(int w, int h) {
+	glViewport(0, 0, w, h);
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	gluPerspective(45.0, (double)w / (double)h, 1.0, 200.0);
+/}*/
 
-//void handleResize(int w, int h) {
-	//glViewport(0, 0, w, h);
-	//glMatrixMode(GL_PROJECTION);
-	//glLoadIdentity();
-	//gluPerspective(45.0, (double)w / (double)h, 1.0, 200.0);
-//}
-
-void display() {
+void display(Camera* flightCam) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	
+	 
 
    //  Enable Z-buffering in OpenGL
-   glEnable(GL_DEPTH_TEST);
-	 glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-	//glTranslatef(0.0f, 0.0f, -10.0f);
-   
-   // glTranslatef(Ex,Ey,Ez);
-    //glRotated(th,0,0,1);
-    //glRotated(ps,0,1,0);
-   // glRotated(ph,1,0,0);
-
-	// Do the eye stuff
-    gluLookAt(Ex,Ey,Ez ,Lx,Ly,Lz, Ux,Uy,Uz);
+     glEnable(GL_DEPTH_TEST);
+     
+    
+	flightCam->move();
+	//glPushMatrix();
+	//glLoadIdentity();
 	
 	GLfloat ambientColor[] = {0.4f, 0.4f, 0.4f, 1.0f};
 	glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambientColor);
@@ -131,84 +322,70 @@ void display() {
 	glLightfv(GL_LIGHT0, GL_DIFFUSE, lightColor0);
 	glLightfv(GL_LIGHT0, GL_POSITION, lightPos0);
 	
+	
+	
+	
 	float scale = sc / max(_terrain->width() - 1, _terrain->length() - 1);
 	glScalef(scale, scale, scale);
 	glTranslatef(-(float)(_terrain->width() - 1) / 2,
 				 0.0f,
 				 -(float)(_terrain->length() - 1) / 2);
 	
-	glEnable(GL_CULL_FACE);
+	//glEnable(GL_CULL_FACE);
 	
 	glColor3f(0.9f, 0.9f, 0.9f);
 	glEnable(GL_TEXTURE_2D);
+	glTexEnvi(GL_TEXTURE_ENV , GL_TEXTURE_ENV_MODE , GL_MODULATE);
 	glBindTexture(GL_TEXTURE_2D,ground);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	for(int z = 0; z < _terrain->length() - 1; z++) {
 		//Makes OpenGL draw a triangle at every three consecutive vertices
 		glBegin(GL_TRIANGLE_STRIP);
 		for(int x = 0; x < _terrain->width(); x++) {
 			Vec3f normal = _terrain->getNormal(x, z);
 			glNormal3f(normal[0], normal[1], normal[2]);
-			glTexCoord2f(x/64.,z/64.); glVertex3f(x, _terrain->getHeight(x, z), z);
+			glTexCoord2f(x/32.,z/32.); glVertex3f(x, _terrain->getHeight(x, z), z);
 			normal = _terrain->getNormal(x, z + 1);
 			glNormal3f(normal[0], normal[1], normal[2]);
-			glTexCoord2f(x/64.,(z+1)/64.); glVertex3f(x, _terrain->getHeight(x, z + 1), z + 1);
+			glTexCoord2f(x/32.,(z+1)/32.); glVertex3f(x, _terrain->getHeight(x, z + 1), z + 1);
 		}
 		glEnd();
 	}
-	glDisable(GL_CULL_FACE);
+	//glDisable(GL_CULL_FACE);
 	
 
 	glBindTexture(GL_TEXTURE_2D,water);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glColor3f(0.1,0.5,0.4);
 	glBegin(GL_QUADS);
-	glTexCoord2f(0,0); glVertex3f(0,0,0);
-	glTexCoord2f(_terrain->width()/64.,0); glVertex3f(_terrain->width(),0,0);
-	glTexCoord2f(_terrain->width()/64.,_terrain->length()/64.); glVertex3f(_terrain->width(),0,_terrain->length());
-	glTexCoord2f(0,_terrain->length()/64.); glVertex3f(0,0,_terrain->length());
+	glTexCoord2f(0,0); glVertex3f(0,seaLevel,0);
+	glTexCoord2f(_terrain->width()/8.,0); glVertex3f(_terrain->width(),seaLevel,0);
+	glTexCoord2f(_terrain->width()/8.0,_terrain->length()/8.); glVertex3f(_terrain->width(),seaLevel,_terrain->length());
+	glTexCoord2f(0,_terrain->length()/8.); glVertex3f(0,seaLevel,_terrain->length());
 	glEnd();
 	glDisable(GL_TEXTURE_2D);
+	
+	Sky((_terrain->width())/1.0);
+	drawForest();
+	
+	glDisable(GL_DEPTH_TEST);
+	Cockpit();
+	
+	// Draw box
+	//cube((float)(_terrain->width() - 1) / 2,0,(float)(_terrain->length() - 1) / 2
+	//	,_terrain->width()*scale*2,_terrain->length()*scale*2,_terrain->length()*scale*2,0);
 	
 	 //  Render the scene and make it visible
    ErrCheck("display");
    glFlush();
    SDL_GL_SwapBuffers();
+   //glPopMatrix();
 }
 
 
-void flight(){
-	
-	// Adjust euler angles
-	th = th + dth;  // yaw
-	ph = ph + dph;  // pitch
-	ps = ps + dps;  // roll
-	
-	// Transform to inertial velocity
-	dx = Cos(th)*Cos(ps)*du;
-	dy = (Cos(ph)*Sin(th)  -  Cos(th)*Sin(ph)*Sin(ps))*du;
-	dz = -(Sin(ph)*Sin(th)  +  Cos(ph)*Cos(th)*Sin(ps))*du; 
-	
-	// No errors with pitch (th)!!!
-	
-	// Yaw and Roll having issues.
-	
-	// Look at (independent of roll angle ph)
-	Lx = Ex + Cos(ps)*Cos(th); 
-    Ly = Ey + (-Sin(ph)*Sin(ps) + Sin(th)*Cos(ph)*Cos(ps));
-    Lz = Ez - (Cos(ph)*Sin(ps) + Sin(ph)*Sin(th)*Cos(ps)); 
-    
-    // Up vector (independent of yaw angle ps)
-   	Ux =  Cos(ps)*Sin(th); // Not this
-    Uy = (Cos(ps)*Sin(ph) + Sin(th)*Cos(ph)*Sin(ps)); // Not this
-	Uz = (Cos(ph)*Cos(ps) - Sin(ph)*Sin(th)*Sin(ps)); // This is the cause!!!
-	
-	// Adjust camera position;
-	Ex = Ex + dx;   // For some reason the coordinates are funky
-	Ey = Ey + dy;
-	Ez = Ez + dz;
-	
-}
-
-int keyDown(){
+int keyDown(Camera* flightCam){
    Uint8* keys = SDL_GetKeyState(NULL);
 //int shift = SDL_GetModState()&KMOD_SHIFT;
    //  Exit on ESC
@@ -220,24 +397,24 @@ int keyDown(){
      
    // roll(ph)
    if (keys[SDLK_l])
-     dph-=0.7;// dth = dth-0.1;
+     flightCam->deltaRoll(-5.0);// dth = dth-0.1;
    else if (keys[SDLK_j])
-     dph+=0.7;//dth = dth+0.1;
+     flightCam->deltaRoll(5.0);//dth = dth+0.1;
    // pitch (theta) 
    if (keys[SDLK_i])
-     dth-=0.7;//dph = dph-0.1;
+     flightCam->deltaPitch(1.5);//dph = dph-0.1;
    else if (keys[SDLK_k])
-    dth+=0.7;//  dph = dph+0.1;
+     flightCam->deltaPitch(-1.5);//  dph = dph+0.1;
    // yaw(psi)
    if (keys[SDLK_a])
-     dps+=0.2;// dps = dps+0.1;
+     flightCam->deltaYaw(-0.3);// dps = dps+0.1;
    else if (keys[SDLK_d])
-      dps-=0.2;//dps = dps-0.1;
+     flightCam->deltaYaw(0.3);//dps = dps-0.1;
       
    if (keys[SDLK_w])
-	  du = du + 0.01;
+	 flightCam->thrust();// du = du + 0.01;
    else if (keys[SDLK_s])
-	  du = du - 0.01;
+	 flightCam->brake();// du = du - 0.01;
 	  
 	// Test
    else if (keys[SDLK_t])
@@ -298,6 +475,8 @@ void reshape(int width,int height)
    Project(fov,asp,dim);
 }
 
+
+
 int main(int argc, char** argv) {
 	
 	int run=1;
@@ -306,6 +485,8 @@ int main(int argc, char** argv) {
 
    //  Initialize SDL
    SDL_Init(SDL_INIT_VIDEO);
+   // Init Rendering
+   initRendering();
    //  Set size, resizable and double buffering
    screen = SDL_SetVideoMode(600,600,0,SDL_OPENGL|SDL_RESIZABLE|SDL_DOUBLEBUF);
    if (!screen ) Fatal("Cannot set SDL video mode\n");
@@ -315,12 +496,20 @@ int main(int argc, char** argv) {
    reshape(screen->w,screen->h);
 
    //  Load textures
-   	_terrain = loadTerrain("test5.bmp", 20);
+   	_terrain = loadTerrain("landscape2.bmp", 20);
 	water = LoadTexBMP("water.bmp");
 	ground = LoadTexBMP("ground1.bmp");
+	sky[0] = LoadTexBMP("skyline.bmp");
+	sky[1] = LoadTexBMP("clouds.bmp");
+	cockpit = LoadTexBMP("cockPit.bmp");
+	bark = LoadTexBMP("bark.bmp");
+	leaves = LoadTexBMP("tree.bmp");
 	
    //  SDL event loop
    ErrCheck("init");
+   
+   Camera* flightCam = new Camera();
+   makeForest();
    while (run)
    {
 	  
@@ -339,7 +528,7 @@ int main(int argc, char** argv) {
                run = 0;
                break;
             case SDL_KEYDOWN:
-               run = keyDown();
+               run = keyDown(flightCam);
                t0 = t+0.5;  // Wait 1/2 s before repeating
                break;
            case SDL_KEYUP:
@@ -358,8 +547,10 @@ int main(int argc, char** argv) {
       }
       //  Display
       //Th = fmod(90*t,360.0);
-      flight();
-      display();
+      //flight();
+      display(flightCam);
+    //  flightCam->update();
+      
       //  Slow down display rate to about 100 fps by sleeping 5ms
       //SDL_Delay(5);
    }

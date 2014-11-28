@@ -32,6 +32,7 @@ print.o: print.c CSCIx229.h
 project.o: project.c CSCIx229.h
 errcheck.o: errcheck.c CSCIx229.h
 terrain.o: terrain.cpp terrain.h
+Camera.o: Camera.cpp Camera.h vec3f.h CSCIx229.h
 vec3f.o: vec3f.cpp vec3f.h
 imageloader.o: imageloader.cpp imageloader.h
 
@@ -47,7 +48,7 @@ CSCIx229.a:fatal.o loadtexbmp.o print.o project.o errcheck.o
 	g++ -c $(CFLG) $<
 
 #  Link
-main:main.o terrain.o imageloader.o vec3f.o CSCIx229.a 
+main:main.o terrain.o imageloader.o vec3f.o Camera.o CSCIx229.a 
 	gcc -O3 -o $@ $^   $(LIBS)
 
 #  Clean

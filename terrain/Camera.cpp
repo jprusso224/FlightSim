@@ -17,13 +17,20 @@
 	}
 	
 	void Camera::reset(){
-		position = Vec3f(0.0,2.0,0.0);
+		position = Vec3f(0.0,-1.0,0.0);
 		along = Vec3f(1.0,0.0,0.0);
 		forward = Vec3f(0.0,0.0,-1.0);
 		up = Vec3f(0.0,1.0,0.0);
+		dyaw = 0;
+		dpitch = 0;
+		droll = 0;
+		speed = 0.05;
 		update();
 	}
 	void Camera :: update(){
+		
+	
+		
 		float x = along.dot(position);
 		float y = up.dot(position);
 		float z = forward.dot(position);
@@ -44,7 +51,7 @@
 		ViewMatrix[2][2] = forward[2];
 		ViewMatrix[2][3] = 0.0;
 		
-		ViewMatrix[3][0] = -x;
+		ViewMatrix[3][0] = x;
 		ViewMatrix[3][1] = y;
 		ViewMatrix[3][2] = z;
 		ViewMatrix[3][3] = 1.0;
@@ -56,37 +63,60 @@
 		
 	}
 	
-	void Camera::roll(int th){
+	void Camera::roll(float th){
 		
+		if (th == 0) return;
 		up = up*Cos(th) - along*Sin(th);
 		up.normalize();
 		along = forward.cross(up);
-		update();
+		//update();
 	}
-	void Camera::pitch(int th){
+	void Camera::pitch(float th){
 		
+		if (th == 0) return;
 		forward = forward*Cos(th) + up*Sin(th);
 		forward.normalize();
 		up = forward.cross(along)*-1.0;
-		update();
+		//update();
 	}
-	void Camera::yaw(int th){
+	void Camera::yaw(float th){
 		
+		if (th == 0) return;
 		along = along*Cos(th) + forward*Sin(th);
 		along.normalize();
 		forward = along.cross(up)*-1.0;
-		update();
+		//update();
 	}
-	void Camera::thrust(){
-		int du = 1;
-		position += du*forward;
+	
+	void Camera::deltaRoll(float dth){
+		droll=dth;
+	}
+		
+	void Camera::deltaPitch(float dth){
+		dpitch=dth;
+	}
+		
+	void Camera::deltaYaw(float dth){
+		dyaw=dth;
+	}
+	
+	
+	void Camera::move(){
+		position += speed*forward;
+	    roll(droll);
+		pitch(dpitch);
+		yaw(dyaw);
 		update();
 	}
 	
+	void Camera::thrust(){
+		speed = speed + 0.02;
+		if (speed > 1) speed = 1;
+	}
+	
 	void Camera::brake(){
-		int du = 1;
-		position -= du*forward;
-		update();
+		speed = speed - 0.02;
+		if (speed < 0) speed = 0;
 	}
 	
 

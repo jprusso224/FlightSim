@@ -29,8 +29,6 @@
 	}
 	void Camera :: update(){
 		
-	
-		
 		float x = along.dot(position);
 		float y = up.dot(position);
 		float z = forward.dot(position);

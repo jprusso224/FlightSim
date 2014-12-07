@@ -1,22 +1,7 @@
-/* Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- * 
- * The above notice and this permission notice shall be included in all copies
- * or substantial portions of the Software.
- * 
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- */
-/* File for "Terrain" lesson of the OpenGL tutorial on
+
+
+/* 
+ * Some of this(height mapping and greyscale image loader) was taken from: 
  * www.videotutorialsrock.com
  */
 
@@ -43,11 +28,16 @@
 
 using namespace std;
 
-int fov=10;       //  Field of view (for perspective)
+int mode = 1;
+int fov=25;       //  Field of view (for perspective)
 double asp=1;     //  Aspect ratio
 double dim=8;     //  Size of world
 float sc = 50;
+int i=1;
 float seaLevel = -5.5;
+
+int azimuth = 40;
+int elevation = 40;
 
 double th = 0.0;
 double ph = 0.0;
@@ -91,6 +81,8 @@ unsigned int cockpit;
 unsigned int sky[2];   //  Sky textures
 unsigned int bark;
 unsigned int leaves;
+unsigned int runway;
+
 
 int density = 1000;
 int rw[1000],rl[1000];
@@ -102,12 +94,14 @@ void cleanup() {
 
 void Tree(float x,float y,float z)
 {
-	int d = 5;
+	int d = 45;
 	int j = 0;
 	glColor3f(1,1,1);
    //Trunk
    glPushMatrix();
+  
    glTranslatef(x,y,z);
+    glScaled(0.2,0.2,0.2);
    glEnable(GL_TEXTURE_2D);
    glBindTexture(GL_TEXTURE_2D,bark);
    glBegin(GL_QUAD_STRIP);
@@ -119,24 +113,25 @@ void Tree(float x,float y,float z)
 	   glTexCoord2d(j/360.0,1);glVertex3f(0.2*Cos(j),-0.2,0.2*Sin(j)); // bottom of tree is open and hidden
    }
    glEnd();
-  
-   glColor3f(0,0.3,0);
+   glDisable(GL_TEXTURE_2D);
+	glEnable(GL_TEXTURE_2D);
+   glColor3f(0.8,0.8,0.8);
    glBindTexture(GL_TEXTURE_2D,leaves);
    //Draw a cone of leaves
    glBegin(GL_TRIANGLE_FAN);
    
  // glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
  //  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-   glTexCoord2d(1,0);
+   glTexCoord2d(0.5,0.5);
    glVertex3f(0,4,0);
    for(j = 0; j <= 360; j+=d)
    {
-	   //glNormal3f(Cos(j),0,Sin(j));
-	   glTexCoord2d(0,j/360);
+	   glNormal3f(-Cos(j),Cos(70),-Sin(j));
+	   glTexCoord2d(0.5+0.4*Cos(j),0.5+0.4*Sin(j));
 	   glVertex3f(1.5*Cos(j),0.5,1.5*Sin(j));
    }
    glEnd();
-  
+  glDisable(GL_TEXTURE_2D);
   glPopMatrix();
 }
 
@@ -152,18 +147,46 @@ void makeForest()
 }
 void drawForest()
 {
+	double templ = _terrain->length();
+	double tempw = _terrain->width();
 	for(int i = 0; i <= density; i++){
 		if (rh[i] > seaLevel){
-			Tree(rw[i],rh[i],rl[i]);
+			if((rw[i] < 1.6*tempw/3.0 || rw[i] > 2*tempw/3.0)&&(rl[i] > 1.5*templ/3.0 || rl[i] < 1.8*templ/3.0)){
+				
+				Tree(rw[i],rh[i],rl[i]);
+				
+			}
 		}
 	}
 }
 
+void drawRunway(){
+	
+	double templ = _terrain->length();
+	double tempw = _terrain->width();
+	double landHeight = _terrain->getHeight(1.7*tempw/3.0,1.8*templ/3.0);
 
+	//glEnable(GL_POLYGON_OFFSET_FILL);
+    //glPolygonOffset(-1,-1);
+    
+    glColor3f(0.9,0.9,0.9);
+    
+	glEnable(GL_TEXTURE_2D);
+    glBindTexture(GL_TEXTURE_2D,runway);
+    
+	
+	glBegin(GL_QUADS);
+	glNormal3f(0,1,0); 	glTexCoord2d(0,0); glVertex3f(1.8*templ/3.0,landHeight+4,1.9*tempw/3.0);
+	glNormal3f(0,1,0);	glTexCoord2d(0,1); glVertex3f(1.8*templ/3.0,landHeight+4,1.1*tempw/3.0);
+	glNormal3f(0,1,0);	glTexCoord2d(1,1); glVertex3f(1.9*templ/3.0,landHeight+4,1.1*tempw/3.0);
+	glNormal3f(0,1,0);	glTexCoord2d(1,0); glVertex3f(1.9*templ/3.0,landHeight+4,1.9*tempw/3.0);
+	glEnd();
+	//glDisable(GL_POLYGON_OFFSET_FILL);
+	glDisable(GL_TEXTURE_2D);
+}
 
 /*
- *  Draw the cockpit as an overlay
- *  Must be called last
+ *  Draw the cockpit (ex20)
  */
 
 void Cockpit()
@@ -185,10 +208,10 @@ void Cockpit()
    glEnable(GL_TEXTURE_2D);
    glBindTexture(GL_TEXTURE_2D,cockpit);
    glBegin(GL_QUADS);
-   glTexCoord2d(0,0);glVertex2f(-1.5,-1);
-   glTexCoord2d(1,0);glVertex2f(+1.5,-1);
-   glTexCoord2d(1,1);glVertex2f(+1.5, -0.25);
-   glTexCoord2d(0,1);glVertex2f(-1.5, -0.25);
+   glTexCoord2d(0,0);glVertex2f(-1.5,-1.25);
+   glTexCoord2d(1,0);glVertex2f(+1.5,-1.25);
+   glTexCoord2d(1,1);glVertex2f(+1.5, -0.50);
+   glTexCoord2d(0,1);glVertex2f(-1.5, -0.50);
    glEnd();
    glDisable(GL_TEXTURE_2D);
    //  Draw the inside of the cockpit in grey
@@ -196,16 +219,16 @@ void Cockpit()
    glColor3f(0.3,0.3,0.3);
    glBegin(GL_QUADS);
    //  Left
-   glVertex2f(-0.50,-0.25);
-   glVertex2f(-0.45,+0.5);
-   glVertex2f(-0.40,+0.5);
-   glVertex2f(-0.40,-0.25);
+   glVertex2f(-0.50,-0.50);
+   glVertex2f(-0.45,+0.25);
+   glVertex2f(-0.40,+0.25);
+   glVertex2f(-0.40,-0.50);
    
       //  Right
-   glVertex2f(+0.50,-0.25);
-   glVertex2f(+0.45,+0.5);
-   glVertex2f(+0.40,+0.5);
-   glVertex2f(+0.40,-0.25);
+   glVertex2f(+0.50,-0.50);
+   glVertex2f(+0.45,+0.25);
+   glVertex2f(+0.40,+0.25);
+   glVertex2f(+0.40,-0.50);
    
    glEnd();
    
@@ -304,26 +327,36 @@ void initRendering() {
 
 void display(Camera* flightCam) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	 
-
-   //  Enable Z-buffering in OpenGL
-     glEnable(GL_DEPTH_TEST);
-     
-    
-	flightCam->move();
-	//glPushMatrix();
-	//glLoadIdentity();
+    glEnable(GL_DEPTH_TEST);
+	glEnable(GL_COLOR_MATERIAL);
+	glEnable(GL_LIGHTING);
+	glEnable(GL_LIGHT0);
+	glEnable(GL_NORMALIZE);
+	glShadeModel(GL_SMOOTH);
 	
-	GLfloat ambientColor[] = {0.4f, 0.4f, 0.4f, 1.0f};
+	if (mode == 0){
+		flightCam->move();
+	}
+	glPushMatrix();
+	glLoadIdentity();
+	
+	GLfloat ambientColor[] = {0.7f, 0.7f, 0.7f, 1.0f};
 	glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambientColor);
 	
-	GLfloat lightColor0[] = {0.6f, 0.6f, 0.6f, 1.0f};
-	GLfloat lightPos0[] = {-0.5f, 0.8f, 0.1f, 0.0f};
+	GLfloat lightColor0[] = {0.9f, 0.9f, 0.9f, 1.0f};
+	GLfloat lightPos0[] = {-2.0f, 3.0f, 1.0f, 0.0f};
 	glLightfv(GL_LIGHT0, GL_DIFFUSE, lightColor0);
 	glLightfv(GL_LIGHT0, GL_POSITION, lightPos0);
 	
 	
-	
+	 if (mode)
+   {
+      double Ex = -1*dim*Sin(azimuth)*Cos(elevation);
+      double Ey = +1*dim        *Sin(elevation);
+      double Ez = +1*dim*Cos(azimuth)*Cos(elevation);
+      gluLookAt(Ex,Ey,Ez , 0,0,0 , 0,Cos(elevation),0);
+      i++;
+   }
 	
 	float scale = sc / max(_terrain->width() - 1, _terrain->length() - 1);
 	glScalef(scale, scale, scale);
@@ -333,7 +366,7 @@ void display(Camera* flightCam) {
 	
 	//glEnable(GL_CULL_FACE);
 	
-	glColor3f(0.9f, 0.9f, 0.9f);
+	glColor3f(0.8f, 0.8f, 0.8f);
 	glEnable(GL_TEXTURE_2D);
 	glTexEnvi(GL_TEXTURE_ENV , GL_TEXTURE_ENV_MODE , GL_MODULATE);
 	glBindTexture(GL_TEXTURE_2D,ground);
@@ -345,43 +378,47 @@ void display(Camera* flightCam) {
 		for(int x = 0; x < _terrain->width(); x++) {
 			Vec3f normal = _terrain->getNormal(x, z);
 			glNormal3f(normal[0], normal[1], normal[2]);
-			glTexCoord2f(x/32.,z/32.); glVertex3f(x, _terrain->getHeight(x, z), z);
+			glTexCoord2f(x/8.,z/8.); 
+			glVertex3f(x, _terrain->getHeight(x, z), z);
 			normal = _terrain->getNormal(x, z + 1);
 			glNormal3f(normal[0], normal[1], normal[2]);
-			glTexCoord2f(x/32.,(z+1)/32.); glVertex3f(x, _terrain->getHeight(x, z + 1), z + 1);
+			glTexCoord2f(x/8.,(z+1)/8.); 
+			glVertex3f(x, _terrain->getHeight(x, z + 1), z + 1);
 		}
 		glEnd();
 	}
 	//glDisable(GL_CULL_FACE);
+	glDisable(GL_TEXTURE_2D);
 	
-
+	glEnable(GL_TEXTURE_2D);
 	glBindTexture(GL_TEXTURE_2D,water);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glColor3f(0.1,0.5,0.4);
 	glBegin(GL_QUADS);
-	glTexCoord2f(0,0); glVertex3f(0,seaLevel,0);
-	glTexCoord2f(_terrain->width()/8.,0); glVertex3f(_terrain->width(),seaLevel,0);
-	glTexCoord2f(_terrain->width()/8.0,_terrain->length()/8.); glVertex3f(_terrain->width(),seaLevel,_terrain->length());
-	glTexCoord2f(0,_terrain->length()/8.); glVertex3f(0,seaLevel,_terrain->length());
+	glNormal3f(0,1,0); glTexCoord2f(0,0); glVertex3f(0,seaLevel,0);
+	glNormal3f(0,1,0);glTexCoord2f(_terrain->width()/8.,0); glVertex3f(_terrain->width(),seaLevel,0);
+	glNormal3f(0,1,0);glTexCoord2f(_terrain->width()/8.0,_terrain->length()/8.); glVertex3f(_terrain->width(),seaLevel,_terrain->length());
+	glNormal3f(0,1,0);glTexCoord2f(0,_terrain->length()/8.); glVertex3f(0,seaLevel,_terrain->length());
 	glEnd();
 	glDisable(GL_TEXTURE_2D);
 	
+	
+	
 	Sky((_terrain->width())/1.0);
+	drawRunway();
 	drawForest();
 	
-	glDisable(GL_DEPTH_TEST);
-	Cockpit();
-	
-	// Draw box
-	//cube((float)(_terrain->width() - 1) / 2,0,(float)(_terrain->length() - 1) / 2
-	//	,_terrain->width()*scale*2,_terrain->length()*scale*2,_terrain->length()*scale*2,0);
+	if (mode == 1){
+		glDisable(GL_DEPTH_TEST);
+		Cockpit();
+	}
 	
 	 //  Render the scene and make it visible
    ErrCheck("display");
    glFlush();
    SDL_GL_SwapBuffers();
-   //glPopMatrix();
+   glPopMatrix();
 }
 
 
@@ -416,14 +453,15 @@ int keyDown(Camera* flightCam){
    else if (keys[SDLK_s])
 	 flightCam->brake();// du = du - 0.01;
 	  
-	// Test
-   else if (keys[SDLK_t])
-	  Ex = Ex + 1;
-   else if (keys[SDLK_f])
-	  Ey = Ey + 1;
-  else if (keys[SDLK_g])
-	  Ez = Ez + 1;
-	  
+   if(keys[SDLK_y])
+		elevation = elevation + 5;
+   else if (keys[SDLK_h])
+	    elevation = elevation - 5;
+	      
+   if(keys[SDLK_g])
+		azimuth = azimuth + 5;
+   else if (keys[SDLK_j])
+	    azimuth = azimuth - 5;
   return 1;
 	
 }
@@ -444,22 +482,27 @@ void correctAngles(){
 			ps = 0;
 }
 
-int keyUp(SDL_Event event){
+int keyUp(Camera* flightCam){
   
-                   if(event.key.keysym.sym == SDLK_i)
-                        dth = 0;
-                   if(event.key.keysym.sym == SDLK_k)
-                        dth = 0;
-                        
-                   if(event.key.keysym.sym == SDLK_j)
-                        dph = 0;
-                        
-                   if(event.key.keysym.sym == SDLK_l)
-                        dph = 0;
-                       
-                  
-                
-                return 1;
+   Uint8* keys = SDL_GetKeyState(NULL);
+   // roll(ph)
+   if (keys[SDLK_l])
+     flightCam->deltaRoll(0);// dth = dth-0.1;
+   else if (keys[SDLK_j])
+     flightCam->deltaRoll(0);//dth = dth+0.1;
+   // pitch (theta) 
+   if (keys[SDLK_i])
+     flightCam->deltaPitch(0);//dph = dph-0.1;
+   else if (keys[SDLK_k])
+     flightCam->deltaPitch(0);//  dph = dph+0.1;
+   // yaw(psi)
+   if (keys[SDLK_a])
+     flightCam->deltaYaw(0);// dps = dps+0.1;
+   else if (keys[SDLK_d])
+     flightCam->deltaYaw(0);//dps = dps-0.1;
+  
+	  
+  return 1;   
 }
 
 /*
@@ -496,7 +539,8 @@ int main(int argc, char** argv) {
    reshape(screen->w,screen->h);
 
    //  Load textures
-   	_terrain = loadTerrain("landscape2.bmp", 20);
+   	_terrain = loadTerrain("valley.bmp", 20);
+    runway = LoadTexBMP("runway.bmp");
 	water = LoadTexBMP("water.bmp");
 	ground = LoadTexBMP("ground1.bmp");
 	sky[0] = LoadTexBMP("skyline.bmp");
@@ -529,10 +573,10 @@ int main(int argc, char** argv) {
                break;
             case SDL_KEYDOWN:
                run = keyDown(flightCam);
-               t0 = t+0.5;  // Wait 1/2 s before repeating
                break;
            case SDL_KEYUP:
-              run = keyUp(event);
+               run = keyUp(flightCam);
+               break;
             default:
                //  Do nothing
          

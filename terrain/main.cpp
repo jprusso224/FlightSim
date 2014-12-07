@@ -6,7 +6,6 @@
  */
 
 
-
 #include <iostream>
 #include <stdlib.h>
 
@@ -23,8 +22,8 @@
 #include "terrain.h"
 #include "Camera.h"
 #include "CSCIx229.h"
-#include <SDL/SDL.h>
-#include <SDL/SDL_mixer.h>
+//#include <SDL/SDL.h>
+//#include <SDL/SDL_mixer.h>
 
 using namespace std;
 
@@ -33,23 +32,27 @@ int fov=25;       //  Field of view (for perspective)
 double asp=1;     //  Aspect ratio
 double dim=8;     //  Size of world
 float sc = 50;
-int i=1;
-float seaLevel = -5.5;
+float i=1;
+float seaLevel = -8.0;
+double landHeight = 0.0;
 
-int azimuth = 40;
-int elevation = 40;
+int zh= 0;
+double azimuth = 180;
+double elevation = 0;
+double daz = 0;
+double del = 0;
+double speed = 0;
+
+Camera* flightCam = new Camera();
 
 double th = 0.0;
 double ph = 0.0;
 double ps = 0.0;
-// Set initial eye coordinates for fpv
-double Ex = 1;
-double Ey = 2;
-double Ez = 0;
 
-double Lx = 1;
-double Ly = 0;
-double Lz = 0;
+// Set initial eye coordinates for fpv
+double Ex = 6.3;
+double Ey = -1.7;//1.7
+double Ez = 9;
 
 double Ux = 0;
 double Uy = 1;
@@ -82,11 +85,32 @@ unsigned int sky[2];   //  Sky textures
 unsigned int bark;
 unsigned int leaves;
 unsigned int runway;
+unsigned int runwayEnds;
 
 
-int density = 1000;
-int rw[1000],rl[1000];
-float rh[1000];
+int density = 2000;
+int * rw = new int[2000];
+int * rl = new int[2000];
+float * rh = new float[2000];
+
+/*
+ *  Draw a ball for debugging light (from ex19)
+ *     at (x,y,z)
+ *     radius r
+ */
+static void ball(double x,double y,double z,double r)
+{
+   //  Save transformation
+   glPushMatrix();
+   //  Offset, scale and rotate
+   glTranslated(x,y,z);
+   glScaled(r,r,r);
+   //  White ball
+   glColor3f(1,1,1);
+   glutSolidSphere(1.0,16,16);
+   //  Undo transofrmations
+   glPopMatrix();
+}
 
 void cleanup() {
 	delete _terrain;
@@ -94,14 +118,25 @@ void cleanup() {
 
 void Tree(float x,float y,float z)
 {
+	
+   //  Set specular color to white
+  /* float white[] = {1,1,1,1};
+   float black[] = {0,0,0,1};
+   float shiny[1];
+   shiny[0] = 0.5;
+   glMaterialfv(GL_FRONT_AND_BACK,GL_SHININESS,shiny);
+   glMaterialfv(GL_FRONT_AND_BACK,GL_SPECULAR,white);
+   glMaterialfv(GL_FRONT_AND_BACK,GL_EMISSION,black);
+   */
 	int d = 45;
 	int j = 0;
+	
 	glColor3f(1,1,1);
    //Trunk
    glPushMatrix();
   
    glTranslatef(x,y,z);
-    glScaled(0.2,0.2,0.2);
+    glScaled(0.3,0.3,0.3);
    glEnable(GL_TEXTURE_2D);
    glBindTexture(GL_TEXTURE_2D,bark);
    glBegin(GL_QUAD_STRIP);
@@ -126,7 +161,7 @@ void Tree(float x,float y,float z)
    glVertex3f(0,4,0);
    for(j = 0; j <= 360; j+=d)
    {
-	   glNormal3f(-Cos(j),Cos(70),-Sin(j));
+	   glNormal3f(Cos(j),Cos(70),Sin(j));
 	   glTexCoord2d(0.5+0.4*Cos(j),0.5+0.4*Sin(j));
 	   glVertex3f(1.5*Cos(j),0.5,1.5*Sin(j));
    }
@@ -137,7 +172,6 @@ void Tree(float x,float y,float z)
 
 void makeForest()
 {
-	
 	for(int i = 0; i <= density; i++){
 		rw[i] = rand()%_terrain->width();
 		rl[i] = rand()%_terrain->length();
@@ -164,24 +198,42 @@ void drawRunway(){
 	
 	double templ = _terrain->length();
 	double tempw = _terrain->width();
-	double landHeight = _terrain->getHeight(1.7*tempw/3.0,1.8*templ/3.0);
+	landHeight = _terrain->getHeight(1.7*tempw/3.0,1.8*templ/3.0);
 
-	//glEnable(GL_POLYGON_OFFSET_FILL);
-    //glPolygonOffset(-1,-1);
+	glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(-1,-1);
     
     glColor3f(0.9,0.9,0.9);
     
 	glEnable(GL_TEXTURE_2D);
     glBindTexture(GL_TEXTURE_2D,runway);
-    
 	
 	glBegin(GL_QUADS);
-	glNormal3f(0,1,0); 	glTexCoord2d(0,0); glVertex3f(1.8*templ/3.0,landHeight+4,1.9*tempw/3.0);
-	glNormal3f(0,1,0);	glTexCoord2d(0,1); glVertex3f(1.8*templ/3.0,landHeight+4,1.1*tempw/3.0);
-	glNormal3f(0,1,0);	glTexCoord2d(1,1); glVertex3f(1.9*templ/3.0,landHeight+4,1.1*tempw/3.0);
-	glNormal3f(0,1,0);	glTexCoord2d(1,0); glVertex3f(1.9*templ/3.0,landHeight+4,1.9*tempw/3.0);
+	glNormal3f(0,1,0); 	glTexCoord2d(0,0); glVertex3f(1.83*templ/3.0,landHeight,1.9*tempw/3.0);
+	glNormal3f(0,1,0);	glTexCoord2d(0,1); glVertex3f(1.83*templ/3.0,landHeight,1.5*tempw/3.0);
+	glNormal3f(0,1,0);	glTexCoord2d(1,1); glVertex3f(1.9*templ/3.0,landHeight,1.5*tempw/3.0);
+	glNormal3f(0,1,0);	glTexCoord2d(1,0); glVertex3f(1.9*templ/3.0,landHeight,1.9*tempw/3.0);
+	
+    glNormal3f(0,1,0); 	glTexCoord2d(0,0); glVertex3f(1.83*templ/3.0,landHeight,1.5*tempw/3.0);
+	glNormal3f(0,1,0);	glTexCoord2d(0,1); glVertex3f(1.83*templ/3.0,landHeight,1.1*tempw/3.0);
+	glNormal3f(0,1,0);	glTexCoord2d(1,1); glVertex3f(1.9*templ/3.0,landHeight,1.1*tempw/3.0);
+	glNormal3f(0,1,0);	glTexCoord2d(1,0); glVertex3f(1.9*templ/3.0,landHeight,1.5*tempw/3.0);
 	glEnd();
-	//glDisable(GL_POLYGON_OFFSET_FILL);
+	
+	glBindTexture(GL_TEXTURE_2D,runwayEnds);
+	glBegin(GL_QUADS);
+	glNormal3f(0,1,0); 	glTexCoord2d(0,0); glVertex3f(1.83*templ/3.0,landHeight,1.1*tempw/3.0);
+	glNormal3f(0,1,0);	glTexCoord2d(0,0.5); glVertex3f(1.83*templ/3.0,landHeight,1.0*tempw/3.0);
+	glNormal3f(0,1,0);	glTexCoord2d(1,0.5); glVertex3f(1.9*templ/3.0,landHeight,1.0*tempw/3.0);
+	glNormal3f(0,1,0);	glTexCoord2d(1,0); glVertex3f(1.9*templ/3.0,landHeight,1.1*tempw/3.0);
+	
+	glNormal3f(0,1,0); 	glTexCoord2d(0,1); glVertex3f(1.83*templ/3.0,landHeight,2.0*tempw/3.0);
+	glNormal3f(0,1,0);	glTexCoord2d(0,0.5); glVertex3f(1.83*templ/3.0,landHeight,1.9*tempw/3.0);
+	glNormal3f(0,1,0);	glTexCoord2d(1,0.5); glVertex3f(1.9*templ/3.0,landHeight,1.9*tempw/3.0);
+	glNormal3f(0,1,0);	glTexCoord2d(1,1); glVertex3f(1.9*templ/3.0,landHeight,2.0*tempw/3.0);
+	
+	glEnd();
+	glDisable(GL_POLYGON_OFFSET_FILL);
 	glDisable(GL_TEXTURE_2D);
 }
 
@@ -317,15 +369,16 @@ void initRendering() {
 	glEnable(GL_NORMALIZE);
 	glShadeModel(GL_SMOOTH);
 }
-/*
-/void handleResize(int w, int h) {
+
+void handleResize(int w, int h) {
 	glViewport(0, 0, w, h);
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
 	gluPerspective(45.0, (double)w / (double)h, 1.0, 200.0);
-/}*/
+}
 
-void display(Camera* flightCam) {
+void display() {
+
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
 	glEnable(GL_COLOR_MATERIAL);
@@ -338,24 +391,53 @@ void display(Camera* flightCam) {
 		flightCam->move();
 	}
 	glPushMatrix();
-	glLoadIdentity();
+	glLoadIdentity();	
 	
-	GLfloat ambientColor[] = {0.7f, 0.7f, 0.7f, 1.0f};
-	glLightModelfv(GL_LIGHT_MODEL_AMBIENT, ambientColor);
+	//  Translate intensity to color vectors
+     float Ambient[]   = {0.3,0.3,0.3,1.0};
+     float Diffuse[]   = {1,1,1,1};
+     float Specular[]  = {1,1,0,1};
+     float white[]     = {1,1,1,1};
+     
+     // Light direction
+     float Position[]  = {3*Sin(zh),3,3*Cos(zh),1};
+      //Draw light position as ball (still no lighting here)
+     ball(Position[0],Position[1],Position[2] , 0.1);
 	
-	GLfloat lightColor0[] = {0.9f, 0.9f, 0.9f, 1.0f};
-	GLfloat lightPos0[] = {-2.0f, 3.0f, 1.0f, 0.0f};
-	glLightfv(GL_LIGHT0, GL_DIFFUSE, lightColor0);
-	glLightfv(GL_LIGHT0, GL_POSITION, lightPos0);
-	
-	
+	 glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER,1);
+	   //  glColor sets ambient and diffuse color materials
+      glColorMaterial(GL_FRONT_AND_BACK,GL_AMBIENT_AND_DIFFUSE);
+      glEnable(GL_COLOR_MATERIAL);
+
+      glLightfv(GL_LIGHT0,GL_AMBIENT ,Ambient);
+      glLightfv(GL_LIGHT0,GL_DIFFUSE ,Diffuse);
+      glLightfv(GL_LIGHT0,GL_SPECULAR,Specular);
+      glLightfv(GL_LIGHT0,GL_POSITION,Position);
+    
 	 if (mode)
    {
-      double Ex = -1*dim*Sin(azimuth)*Cos(elevation);
-      double Ey = +1*dim        *Sin(elevation);
-      double Ez = +1*dim*Cos(azimuth)*Cos(elevation);
-      gluLookAt(Ex,Ey,Ez , 0,0,0 , 0,Cos(elevation),0);
-      i++;
+	   
+	//Make changes to azimuth and elevation   
+   double t = glutGet(GLUT_ELAPSED_TIME)/1000.0;
+   azimuth += t*daz;
+   elevation += t*del;
+	   
+	double Lx = Ex + Sin(azimuth)*Cos(elevation);
+    double Ly = Ey + Sin(elevation);
+    double Lz = Ez + Cos(azimuth)*Cos(elevation);
+    //  Ex = -0.01*dim*Sin(azimuth)*Cos(elevation);
+     // Ey = +0.01*dim        *Sin(elevation);
+     // Ez = +0.01*dim*Cos(azimuth)*Cos(elevation);
+      gluLookAt(Ex,Ey,Ez , Lx,Ly,Lz , 0,Cos(elevation),0);
+
+      
+      Ex += speed*Sin(azimuth);
+      Ez += speed*Cos(azimuth);
+     Lx += speed*Sin(azimuth);
+     Lz += speed*Cos(azimuth);
+      Ey += speed*Sin(elevation);
+      Ly += speed*Sin(elevation);
+      
    }
 	
 	float scale = sc / max(_terrain->width() - 1, _terrain->length() - 1);
@@ -403,25 +485,26 @@ void display(Camera* flightCam) {
 	glEnd();
 	glDisable(GL_TEXTURE_2D);
 	
-	
-	
 	Sky((_terrain->width())/1.0);
 	drawRunway();
 	drawForest();
 	
-	if (mode == 1){
+	glDisable(GL_LIGHTING);
+
+	
 		glDisable(GL_DEPTH_TEST);
 		Cockpit();
-	}
+	
 	
 	 //  Render the scene and make it visible
    ErrCheck("display");
    glFlush();
-   SDL_GL_SwapBuffers();
+   glutSwapBuffers();
+   //SDL_GL_SwapBuffers();
    glPopMatrix();
 }
 
-
+/*
 int keyDown(Camera* flightCam){
    Uint8* keys = SDL_GetKeyState(NULL);
 //int shift = SDL_GetModState()&KMOD_SHIFT;
@@ -465,6 +548,7 @@ int keyDown(Camera* flightCam){
   return 1;
 	
 }
+*/
 
 void correctAngles(){
 	
@@ -481,7 +565,7 @@ void correctAngles(){
 		if (ps >= 360)
 			ps = 0;
 }
-
+/*
 int keyUp(Camera* flightCam){
   
    Uint8* keys = SDL_GetKeyState(NULL);
@@ -504,6 +588,108 @@ int keyUp(Camera* flightCam){
 	  
   return 1;   
 }
+*/
+
+/*
+ *  GLUT calls this routine when an arrow key is pressed
+ */
+void special(int key,int x,int y)
+{
+   //  Right arrow key - increase angle by 5 degrees
+   if (key == GLUT_KEY_RIGHT)
+      daz = -0.05;
+   //  Left arrow key - decrease angle by 5 degrees
+   else if (key == GLUT_KEY_LEFT)
+      daz = 0.05;
+   //  Up arrow key - increase elevation by 5 degrees
+   else if (key == GLUT_KEY_UP)
+      del = -0.1;
+   //  Down arrow key - decrease elevation by 5 degrees
+   else if (key == GLUT_KEY_DOWN)
+      del = 0.1;
+   //  PageUp key - increase dim
+   else if (key == GLUT_KEY_PAGE_DOWN)
+      dim += 0.1;
+   //  PageDown key - decrease dim
+   else if (key == GLUT_KEY_PAGE_UP && dim>1)
+      dim -= 0.1;
+      
+ 
+   //  Keep angles to +/-360 degrees
+//   th %= 360;
+  // ph %= 360;
+   //  Update projection
+   Project(fov,asp,dim);
+   //  Tell GLUT it is necessary to redisplay the scene
+   glutPostRedisplay();
+}
+
+/*
+ *  GLUT calls this routine when an arrow key is pressed
+ */
+void keyUp(int key,int x,int y)
+{
+   //  Right arrow key - increase angle by 5 degrees
+   if (key == GLUT_KEY_RIGHT)
+      daz = 0;
+   //  Left arrow key - decrease angle by 5 degrees
+   else if (key == GLUT_KEY_LEFT)
+      daz = 0;
+   //  Up arrow key - increase elevation by 5 degrees
+   else if (key == GLUT_KEY_UP)
+      del = 0;
+   //  Down arrow key - decrease elevation by 5 degrees
+   else if (key == GLUT_KEY_DOWN)
+      del = 0;
+   //  PageUp key - increase dim
+   else if (key == GLUT_KEY_PAGE_DOWN)
+      dim += 0.1;
+   //  PageDown key - decrease dim
+   else if (key == GLUT_KEY_PAGE_UP && dim>1)
+      dim -= 0.1;
+      
+ 
+   //  Keep angles to +/-360 degrees
+//   th %= 360;
+  // ph %= 360;
+   //  Update projection
+   Project(fov,asp,dim);
+   //  Tell GLUT it is necessary to redisplay the scene
+   glutPostRedisplay();
+}
+
+
+/*
+ *  GLUT calls this routine when a key is pressed
+ */
+void key(unsigned char ch,int x,int y)
+{
+   //  Exit on ESC
+   if (ch == 27)
+      exit(0);
+   //  Reset view angle
+   else if (ch == '0')
+      th = ph = 0;
+   //  Toggle axes
+   else if (ch == 'a' || ch == 'A')
+      th = th + 5;
+   //  Toggle light
+   else if (ch == 'l' || ch == 'L')
+      ph = ph + 5;
+   //  Toggle axes
+   else if (ch == 'w' || ch == 'W')
+      speed += 0.05;
+   //  Toggle light
+   else if (ch == 's' || ch == 'S')
+      speed -= 0.05;
+      
+  if (speed < 0) speed = 0;
+  
+   //  Reproject
+   Project(fov,asp,dim);
+   //  Tell GLUT it is necessary to redisplay the scene
+   glutPostRedisplay();
+}
 
 /*
  *  Call this routine when the window is resized
@@ -518,11 +704,33 @@ void reshape(int width,int height)
    Project(fov,asp,dim);
 }
 
+void idle()
+{
+   //  Elapsed time in seconds
+   double t = glutGet(GLUT_ELAPSED_TIME)/1000.0;
+   zh = fmod(90*t,360.0);
+   //  Tell GLUT it is necessary to redisplay the scene
+   glutPostRedisplay();
+}
 
 
 int main(int argc, char** argv) {
 	
-	int run=1;
+	//  Initialize GLUT
+   glutInit(&argc,argv);
+   //  Request double buffered, true color window with Z buffering at 600x600
+   glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
+   glutInitWindowSize(600,600);
+   glutCreateWindow("Gold 10 Dollar");
+   //  Set callbacks
+   glutDisplayFunc(display);
+   glutReshapeFunc(reshape);
+   glutSpecialFunc(special);
+   glutKeyboardFunc(key);
+   glutSpecialUpFunc(keyUp);
+   glutIdleFunc(idle);
+	
+	/*int run=1;
    double t0=0;
    SDL_Surface* screen;
 
@@ -538,9 +746,11 @@ int main(int argc, char** argv) {
    //  Set screen size
    reshape(screen->w,screen->h);
 
+*/
    //  Load textures
-   	_terrain = loadTerrain("valley.bmp", 20);
-    runway = LoadTexBMP("runway.bmp");
+   	_terrain = loadTerrain("crater.bmp", 20);
+    runway = LoadTexBMP("WPP-RUL.bmp");
+    runwayEnds = LoadTexBMP("WPP-ENDS.bmp");
 	water = LoadTexBMP("water.bmp");
 	ground = LoadTexBMP("ground1.bmp");
 	sky[0] = LoadTexBMP("skyline.bmp");
@@ -548,14 +758,16 @@ int main(int argc, char** argv) {
 	cockpit = LoadTexBMP("cockPit.bmp");
 	bark = LoadTexBMP("bark.bmp");
 	leaves = LoadTexBMP("tree.bmp");
-	
+	 makeForest();
    //  SDL event loop
    ErrCheck("init");
    
+   /*
    Camera* flightCam = new Camera();
-   makeForest();
+  
    while (run)
    {
+	  
 	  
       //  Elapsed time in seconds
       double t = SDL_GetTicks()/1000.0;
@@ -600,6 +812,8 @@ int main(int argc, char** argv) {
    }
    //  Shut down SDL
    SDL_Quit();
+   * */
+    glutMainLoop();
    return 0;
 }
 

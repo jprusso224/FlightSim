@@ -51,8 +51,8 @@ double ps = 0.0;
 
 // Set initial eye coordinates for fpv
 double Ex = 6.3;
-double Ey = -1.7;//1.7
-double Ez = 9;
+double Ey = -1.7 + 2;//1.7
+double Ez = 9 + 15;
 
 double Ux = 0;
 double Uy = 1;
@@ -199,6 +199,7 @@ void drawRunway(){
 	double templ = _terrain->length();
 	double tempw = _terrain->width();
 	landHeight = _terrain->getHeight(1.7*tempw/3.0,1.8*templ/3.0);
+	double offset = +30;
 
 	glEnable(GL_POLYGON_OFFSET_FILL);
     glPolygonOffset(-1,-1);
@@ -209,28 +210,28 @@ void drawRunway(){
     glBindTexture(GL_TEXTURE_2D,runway);
 	
 	glBegin(GL_QUADS);
-	glNormal3f(0,1,0); 	glTexCoord2d(0,0); glVertex3f(1.83*templ/3.0,landHeight,1.9*tempw/3.0);
-	glNormal3f(0,1,0);	glTexCoord2d(0,1); glVertex3f(1.83*templ/3.0,landHeight,1.5*tempw/3.0);
-	glNormal3f(0,1,0);	glTexCoord2d(1,1); glVertex3f(1.9*templ/3.0,landHeight,1.5*tempw/3.0);
-	glNormal3f(0,1,0);	glTexCoord2d(1,0); glVertex3f(1.9*templ/3.0,landHeight,1.9*tempw/3.0);
+	glNormal3f(0,1,0); 	glTexCoord2d(0,0); glVertex3f(1.83*templ/3.0,landHeight,1.9*tempw/3.0 -offset);
+	glNormal3f(0,1,0);	glTexCoord2d(0,1); glVertex3f(1.83*templ/3.0,landHeight,1.5*tempw/3.0 -offset);
+	glNormal3f(0,1,0);	glTexCoord2d(1,1); glVertex3f(1.9*templ/3.0,landHeight,1.5*tempw/3.0 -offset);
+	glNormal3f(0,1,0);	glTexCoord2d(1,0); glVertex3f(1.9*templ/3.0,landHeight,1.9*tempw/3.0 -offset);
 	
-    glNormal3f(0,1,0); 	glTexCoord2d(0,0); glVertex3f(1.83*templ/3.0,landHeight,1.5*tempw/3.0);
-	glNormal3f(0,1,0);	glTexCoord2d(0,1); glVertex3f(1.83*templ/3.0,landHeight,1.1*tempw/3.0);
-	glNormal3f(0,1,0);	glTexCoord2d(1,1); glVertex3f(1.9*templ/3.0,landHeight,1.1*tempw/3.0);
-	glNormal3f(0,1,0);	glTexCoord2d(1,0); glVertex3f(1.9*templ/3.0,landHeight,1.5*tempw/3.0);
+    glNormal3f(0,1,0); 	glTexCoord2d(0,0); glVertex3f(1.83*templ/3.0,landHeight,1.5*tempw/3.0-offset);
+	glNormal3f(0,1,0);	glTexCoord2d(0,1); glVertex3f(1.83*templ/3.0,landHeight,1.1*tempw/3.0-offset);
+	glNormal3f(0,1,0);	glTexCoord2d(1,1); glVertex3f(1.9*templ/3.0,landHeight,1.1*tempw/3.0-offset);
+	glNormal3f(0,1,0);	glTexCoord2d(1,0); glVertex3f(1.9*templ/3.0,landHeight,1.5*tempw/3.0-offset);
 	glEnd();
 	
 	glBindTexture(GL_TEXTURE_2D,runwayEnds);
 	glBegin(GL_QUADS);
-	glNormal3f(0,1,0); 	glTexCoord2d(0,0); glVertex3f(1.83*templ/3.0,landHeight,1.1*tempw/3.0);
-	glNormal3f(0,1,0);	glTexCoord2d(0,0.5); glVertex3f(1.83*templ/3.0,landHeight,1.0*tempw/3.0);
-	glNormal3f(0,1,0);	glTexCoord2d(1,0.5); glVertex3f(1.9*templ/3.0,landHeight,1.0*tempw/3.0);
-	glNormal3f(0,1,0);	glTexCoord2d(1,0); glVertex3f(1.9*templ/3.0,landHeight,1.1*tempw/3.0);
+	glNormal3f(0,1,0); 	glTexCoord2d(0,0); glVertex3f(1.83*templ/3.0,landHeight,1.1*tempw/3.0 - offset);
+	glNormal3f(0,1,0);	glTexCoord2d(0,0.5); glVertex3f(1.83*templ/3.0,landHeight,1.0*tempw/3.0 - offset);
+	glNormal3f(0,1,0);	glTexCoord2d(1,0.5); glVertex3f(1.9*templ/3.0,landHeight,1.0*tempw/3.0 - offset);
+	glNormal3f(0,1,0);	glTexCoord2d(1,0); glVertex3f(1.9*templ/3.0,landHeight,1.1*tempw/3.0 - offset);
 	
-	glNormal3f(0,1,0); 	glTexCoord2d(0,1); glVertex3f(1.83*templ/3.0,landHeight,2.0*tempw/3.0);
-	glNormal3f(0,1,0);	glTexCoord2d(0,0.5); glVertex3f(1.83*templ/3.0,landHeight,1.9*tempw/3.0);
-	glNormal3f(0,1,0);	glTexCoord2d(1,0.5); glVertex3f(1.9*templ/3.0,landHeight,1.9*tempw/3.0);
-	glNormal3f(0,1,0);	glTexCoord2d(1,1); glVertex3f(1.9*templ/3.0,landHeight,2.0*tempw/3.0);
+	glNormal3f(0,1,0); 	glTexCoord2d(0,1); glVertex3f(1.83*templ/3.0,landHeight,2.0*tempw/3.0 - offset);
+	glNormal3f(0,1,0);	glTexCoord2d(0,0.5); glVertex3f(1.83*templ/3.0,landHeight,1.9*tempw/3.0 - offset);
+	glNormal3f(0,1,0);	glTexCoord2d(1,0.5); glVertex3f(1.9*templ/3.0,landHeight,1.9*tempw/3.0 - offset);
+	glNormal3f(0,1,0);	glTexCoord2d(1,1); glVertex3f(1.9*templ/3.0,landHeight,2.0*tempw/3.0 - offset);
 	
 	glEnd();
 	glDisable(GL_POLYGON_OFFSET_FILL);
@@ -394,7 +395,7 @@ void display() {
 	glLoadIdentity();	
 	
 	//  Translate intensity to color vectors
-     float Ambient[]   = {0.3,0.3,0.3,1.0};
+     float Ambient[]   = {0.6,0.6,0.6,1.0};
      float Diffuse[]   = {1,1,1,1};
      float Specular[]  = {1,1,0,1};
      float white[]     = {1,1,1,1};
@@ -404,7 +405,7 @@ void display() {
       //Draw light position as ball (still no lighting here)
      ball(Position[0],Position[1],Position[2] , 0.1);
 	
-	 glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER,1);
+	// glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER,1);
 	   //  glColor sets ambient and diffuse color materials
       glColorMaterial(GL_FRONT_AND_BACK,GL_AMBIENT_AND_DIFFUSE);
       glEnable(GL_COLOR_MATERIAL);
@@ -416,14 +417,22 @@ void display() {
     
 	 if (mode)
    {
-	   
+	      
 	//Make changes to azimuth and elevation   
    double t = glutGet(GLUT_ELAPSED_TIME)/1000.0;
    azimuth += t*daz;
    elevation += t*del;
 	   
 	double Lx = Ex + Sin(azimuth)*Cos(elevation);
-    double Ly = Ey + Sin(elevation);
+	double Ly;
+	    
+      if(Ey < -1.68){
+		  Ey = -1.7;
+		  Ly = -1.7;
+	  }else{
+      
+			Ly = Ey + Sin(elevation);
+		}
     double Lz = Ez + Cos(azimuth)*Cos(elevation);
     //  Ex = -0.01*dim*Sin(azimuth)*Cos(elevation);
      // Ey = +0.01*dim        *Sin(elevation);
@@ -437,7 +446,10 @@ void display() {
      Lz += speed*Cos(azimuth);
       Ey += speed*Sin(elevation);
       Ly += speed*Sin(elevation);
-      
+  
+    if(mode == 2){
+	    gluLookAt(2,2,2 , 0,0,0 , 0,Cos(elevation),0);
+	}
    }
 	
 	float scale = sc / max(_terrain->width() - 1, _terrain->length() - 1);
@@ -476,7 +488,7 @@ void display() {
 	glBindTexture(GL_TEXTURE_2D,water);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glColor3f(0.1,0.5,0.4);
+	glColor3f(0.8,0.8,0.8);
 	glBegin(GL_QUADS);
 	glNormal3f(0,1,0); glTexCoord2f(0,0); glVertex3f(0,seaLevel,0);
 	glNormal3f(0,1,0);glTexCoord2f(_terrain->width()/8.,0); glVertex3f(_terrain->width(),seaLevel,0);
@@ -597,16 +609,16 @@ void special(int key,int x,int y)
 {
    //  Right arrow key - increase angle by 5 degrees
    if (key == GLUT_KEY_RIGHT)
-      daz = -0.05;
+      daz = -0.03;
    //  Left arrow key - decrease angle by 5 degrees
    else if (key == GLUT_KEY_LEFT)
-      daz = 0.05;
+      daz = 0.03;
    //  Up arrow key - increase elevation by 5 degrees
    else if (key == GLUT_KEY_UP)
-      del = -0.1;
+      del = -0.05;
    //  Down arrow key - decrease elevation by 5 degrees
    else if (key == GLUT_KEY_DOWN)
-      del = 0.1;
+      del = 0.05;
    //  PageUp key - increase dim
    else if (key == GLUT_KEY_PAGE_DOWN)
       dim += 0.1;
@@ -670,6 +682,11 @@ void key(unsigned char ch,int x,int y)
    //  Reset view angle
    else if (ch == '0')
       th = ph = 0;
+      
+   else if (ch == 'm'){
+      mode++;
+      mode=mode%3;
+  }
    //  Toggle axes
    else if (ch == 'a' || ch == 'A')
       th = th + 5;
